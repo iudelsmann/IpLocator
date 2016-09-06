@@ -1,7 +1,12 @@
+import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.maxmind.geoip2.DatabaseReader;
+import com.maxmind.geoip2.exception.GeoIp2Exception;
+import com.maxmind.geoip2.model.CityResponse;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -24,6 +29,7 @@ public class IpLocator {
 
     private final static IntWritable one = new IntWritable(1);
     private Text word = new Text();
+    private File database = new File("/path/to/GeoIP2-City.mmdb");
 
     // Regex para extrair IP de uma string aleatoria
     private static final String IPADDRESS_PATTERN = "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)";
@@ -33,14 +39,21 @@ public class IpLocator {
     public void map(Object key, Text value, Context context)
         throws IOException, InterruptedException {
 
+      DatabaseReader reader = new DatabaseReader.Builder(database).build();
+
       // Tenta extrair um IP
       Matcher matcher = pattern.matcher(value.toString());
 
       // Caso encontre um IP
       if (matcher.find()) {
-        // TODO requisição para a API para buscar pais do IP (o IP é retornado
-        // por matcher.group())
-        word.set(matcher.group());
+        InetAddress ipAddress = InetAddress.getByName(matcher.group());
+        CityResponse response = null;
+        try {
+          response = reader.city(ipAddress);
+        } catch (GeoIp2Exception e) {
+          e.printStackTrace();
+        }
+        word.set(response.getCity().getName());
         context.write(word, one);
       }
     }
