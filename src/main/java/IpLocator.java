@@ -29,17 +29,19 @@ public class IpLocator {
 
     private final static IntWritable one = new IntWritable(1);
     private Text word = new Text();
-    private File database = new File("/path/to/GeoIP2-City.mmdb");
+    private File database = new File("/GeoLite2-City.mmdb");
+    private DatabaseReader reader = new DatabaseReader.Builder(database).build();
 
     // Regex para extrair IP de uma string aleatoria
     private static final String IPADDRESS_PATTERN = "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)";
     private static final Pattern pattern = Pattern.compile(IPADDRESS_PATTERN);
 
+    public IpLocatorMapper() throws IOException {
+    }
+
     @Override
     public void map(Object key, Text value, Context context)
         throws IOException, InterruptedException {
-
-      DatabaseReader reader = new DatabaseReader.Builder(database).build();
 
       // Tenta extrair um IP
       Matcher matcher = pattern.matcher(value.toString());
@@ -53,8 +55,10 @@ public class IpLocator {
         } catch (GeoIp2Exception e) {
           e.printStackTrace();
         }
-        word.set(response.getCity().getName());
-        context.write(word, one);
+        if(response.getCountry() != null) {
+          word.set(response.getCountry().getName());
+          context.write(word, one);
+        }
       }
     }
   }
