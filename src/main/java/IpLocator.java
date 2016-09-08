@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 import com.maxmind.geoip2.DatabaseReader;
 import com.maxmind.geoip2.exception.GeoIp2Exception;
 import com.maxmind.geoip2.model.CityResponse;
+import com.maxmind.geoip2.record.City;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -52,12 +53,16 @@ public class IpLocator {
         CityResponse response = null;
         try {
           response = reader.city(ipAddress);
+          if(response != null && response.getCity() != null) {
+            City city = response.getCity();
+            String coord = response.getLocation().getLatitude().toString() + "_" + response.getLocation().getLongitude().toString();
+            if(city.getName() != null){
+              word.set(city.getName() + "_" + coord);
+              context.write(word, one);
+            }
+          }
         } catch (GeoIp2Exception e) {
           e.printStackTrace();
-        }
-        if(response.getCountry() != null) {
-          word.set(response.getCountry().getName());
-          context.write(word, one);
         }
       }
     }
