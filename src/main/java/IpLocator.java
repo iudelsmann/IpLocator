@@ -26,10 +26,11 @@ public class IpLocator {
    * os reducers.
    *
    */
-  public static class IpLocatorMapper extends Mapper<Object, Text, Text, IntWritable> {
+  public static class IpLocatorMapper extends Mapper<Object, Text, Text, Text> {
 
     private final static IntWritable one = new IntWritable(1);
     private Text word = new Text();
+    private Text concat = new Text();
     private File database = new File("/GeoLite2-City.mmdb");
     private DatabaseReader reader = new DatabaseReader.Builder(database).build();
 
@@ -57,8 +58,9 @@ public class IpLocator {
             City city = response.getCity();
             String coord = response.getLocation().getLatitude().toString() + "_" + response.getLocation().getLongitude().toString();
             if(city.getName() != null){
-              word.set(city.getName() + "_" + coord);
-              context.write(word, one);
+              word.set(city.getName());
+              concat.set("1" + ";" + coord);
+              context.write(word, concat);
             }
           }
         } catch (GeoIp2Exception e) {
@@ -74,17 +76,21 @@ public class IpLocator {
    * requisicoes de cada origem.
    *
    */
-  public static class IpLocatorReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-    private IntWritable result = new IntWritable();
+  public static class IpLocatorReducer extends Reducer<Text, Text, Text, Text> {
+    private Text result = new Text();
 
     @Override
-    public void reduce(Text key, Iterable<IntWritable> values, Context context)
+    public void reduce(Text key, Iterable<Text> values, Context context)
         throws IOException, InterruptedException {
-      int sum = 0;
-      for (IntWritable val : values) {
-        sum += val.get();
+      Integer sum = 0;
+      String coord = null;
+      for (Text val : values) {
+        if(coord == null && val.toString().split(";").length > 1){
+          coord = val.toString().split(";")[1];
+        }
+        sum += Integer.valueOf(val.toString().split(";")[0]);
       }
-      result.set(sum);
+      result.set(sum.toString() + ";" + coord);
       context.write(key, result);
     }
   }
@@ -97,7 +103,7 @@ public class IpLocator {
     job.setCombinerClass(IpLocatorReducer.class);
     job.setReducerClass(IpLocatorReducer.class);
     job.setOutputKeyClass(Text.class);
-    job.setOutputValueClass(IntWritable.class);
+    job.setOutputValueClass(Text.class);
     FileInputFormat.addInputPath(job, new Path(args[0]));
     FileOutputFormat.setOutputPath(job, new Path(args[1]));
     System.exit(job.waitForCompletion(true) ? 0 : 1);
