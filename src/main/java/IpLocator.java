@@ -4,10 +4,6 @@ import java.net.InetAddress;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.maxmind.geoip2.DatabaseReader;
-import com.maxmind.geoip2.exception.GeoIp2Exception;
-import com.maxmind.geoip2.model.CityResponse;
-import com.maxmind.geoip2.record.City;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -17,6 +13,11 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+import com.maxmind.geoip2.DatabaseReader;
+import com.maxmind.geoip2.exception.GeoIp2Exception;
+import com.maxmind.geoip2.model.CityResponse;
+import com.maxmind.geoip2.record.City;
 
 public class IpLocator {
 
@@ -54,10 +55,11 @@ public class IpLocator {
         CityResponse response = null;
         try {
           response = reader.city(ipAddress);
-          if(response != null && response.getCity() != null) {
+          if (response != null && response.getCity() != null) {
             City city = response.getCity();
-            String coord = response.getLocation().getLatitude().toString() + "_" + response.getLocation().getLongitude().toString();
-            if(city.getName() != null){
+            String coord = response.getLocation().getLatitude().toString() + "_"
+                + response.getLocation().getLongitude().toString();
+            if (city.getName() != null) {
               word.set(city.getName());
               concat.set("1" + ";" + coord);
               context.write(word, concat);
@@ -85,7 +87,7 @@ public class IpLocator {
       Integer sum = 0;
       String coord = null;
       for (Text val : values) {
-        if(coord == null && val.toString().split(";").length > 1){
+        if (coord == null && val.toString().split(";").length > 1) {
           coord = val.toString().split(";")[1];
         }
         sum += Integer.valueOf(val.toString().split(";")[0]);
@@ -97,13 +99,14 @@ public class IpLocator {
 
   public static void main(String[] args) throws Exception {
     Configuration conf = new Configuration();
-    Job job = Job.getInstance(conf, "word count");
+    Job job = Job.getInstance(conf, "IpLocator");
     job.setJarByClass(IpLocator.class);
     job.setMapperClass(IpLocatorMapper.class);
     job.setCombinerClass(IpLocatorReducer.class);
     job.setReducerClass(IpLocatorReducer.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(Text.class);
+    job.setNumReduceTasks(5);
     FileInputFormat.addInputPath(job, new Path(args[0]));
     FileOutputFormat.setOutputPath(job, new Path(args[1]));
     System.exit(job.waitForCompletion(true) ? 0 : 1);
