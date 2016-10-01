@@ -55,7 +55,7 @@ public class Main {
             }
           };
 
-  private static final Function2<String, String, String> WORDS_REDUCER =
+  private static final Function2<String, String, String> IP_REDUCER =
           new Function2<String, String, String>() {
             @Override
             public String call(String x, String y){
@@ -75,12 +75,12 @@ public class Main {
     }
     reader = new DatabaseReader.Builder(database).build();
 
-    SparkConf conf = new SparkConf().setAppName("org.sparkexample.WordCount").setMaster("local");
+    SparkConf conf = new SparkConf().setAppName("org.sparkexample.IpLocator").setMaster("local");
     JavaSparkContext context = new JavaSparkContext(conf);
 
     JavaRDD<String> file = context.textFile(args[0]);
     JavaPairRDD<String, String> pairs = file.mapToPair(IP_MAPPER);
-    JavaPairRDD<String, String> counter = pairs.reduceByKey(WORDS_REDUCER);
+    JavaPairRDD<String, String> counter = pairs.reduceByKey(IP_REDUCER);
 
     counter.saveAsTextFile(args[1]);
   }
