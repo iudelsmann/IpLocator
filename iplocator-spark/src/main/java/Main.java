@@ -8,6 +8,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 
@@ -48,10 +49,10 @@ public class Main {
             }
           }
         } catch (GeoIp2Exception e) {
-          e.printStackTrace();
+          // e.printStackTrace();
         }
       }
-      return new Tuple2<>("", "");
+      return new Tuple2<>("Unknown", "1;0_0");
     }
   };
 
@@ -69,6 +70,17 @@ public class Main {
     }
   };
 
+  @SuppressWarnings("serial")
+  private static final Function<String, Boolean> IP_FILTER = new Function<String, Boolean>() {
+
+    @Override
+    public Boolean call(String x) throws Exception {
+      Matcher matcher = pattern.matcher(x);
+      return matcher.find();
+    }
+
+  };
+
   public static void main(String[] args) throws IOException {
     if (args.length < 1) {
       System.err.println("Please provide the input file full path as argument");
@@ -76,10 +88,11 @@ public class Main {
     }
     reader = new DatabaseReader.Builder(database).build();
 
-    SparkConf conf = new SparkConf().setAppName("IpLocator").setMaster("local");
+    SparkConf conf = new SparkConf().setAppName("IpLocator").setMaster("yarn");
     JavaSparkContext context = new JavaSparkContext(conf);
 
     JavaRDD<String> file = context.textFile(args[0]);
+    file = file.filter(IP_FILTER);
     JavaPairRDD<String, String> pairs = file.mapToPair(IP_MAPPER);
     JavaPairRDD<String, String> counter = pairs.reduceByKey(IP_REDUCER);
 
